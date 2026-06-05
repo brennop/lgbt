@@ -41,7 +41,7 @@ function ghostty:format_alloc(formatter)
   local len = ffi.new "size_t[1]"
   local result = C.ghostty_formatter_format_alloc(formatter, NULL, buf, len)
   assert(result == "GHOSTTY_SUCCESS", "ghostty_formatter_format_alloc = " .. tostring(result))
-  local str = ffi.string(buf, len[0])
+  local str = ffi.string(buf[0], len[0])
   C.ghostty_free(nil, buf[0], len[0]) -- this might be wrong
   return str
 end

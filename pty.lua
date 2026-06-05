@@ -1,12 +1,15 @@
 local posix  = require "posix."
 local unistd = require "posix.unistd"
 local stdio  = require "posix.stdio"
+local termio = require "posix.termio"
 
 local pty = {}
 
 -- FIXME: isn't it missing login_tty?
-function pty:spawn()
+function pty:spawn(opts)
   local master, slave, slave_name = posix.openpty()
+
+  local ok, errmsg, errnum = termio.tcsetwinsize(master, {ws_row=opts.rows, ws_col=opts.cols, ws_xpixel=opts.width, ws_ypixel=opts.height})
 
   local pid = unistd.fork()
 
@@ -27,7 +30,7 @@ function pty:spawn()
     unistd.dup2(ctty, 2)
     if ctty > 2 then unistd.close(ctty) end
 
-    unistd.execp("bash", { "ls" })
+    unistd.execp("zsh", { })
     os.exit(1) -- deu ruim
   else
     -- parent
@@ -49,7 +52,7 @@ end
 function pty:read(callback)
   while true do
     local output = unistd.read(self.master, 4096)
-    if not chunk then break end
+    if not output or #output == 0 then break end
     callback(output, #output)
   end
 end
