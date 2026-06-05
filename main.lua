@@ -1,6 +1,6 @@
 local ghostty = require "lib.ghostty"
 
-local pty = require "lpty"
+local pty = require "pty"
 
 local tela_preta = {}
 
@@ -29,5 +29,6 @@ end
 function love.draw()
   love.graphics.setFont(tela_preta.font)
 
-  -- TODO: copy: https://github.com/ghostty-org/ghostling/blob/1e6dfa40575b335988c989cb0613b309dc61b415/main.c#L185 
+  local formatter = ghostty:new_formatter(tela_preta.terminal)
+  local buffer = ghostty:format_alloc(formatter)
 end

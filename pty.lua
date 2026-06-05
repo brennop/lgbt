@@ -1,69 +1,56 @@
-local ffi = require "ffi"
+local posix  = require "posix."
+local unistd = require "posix.unistd"
+local stdio  = require "posix.stdio"
 
-ffi.cdef [[
-  struct winsize {
-    unsigned short ws_row;
-    unsigned short ws_col;
-    unsigned short ws_xpixel;
-    unsigned short ws_ypixel;
-  };
+local pty = {}
 
-  int forkpty(int *amaster, char *name, struct termios *termp, struct winsize *winp);
-  int fcntl(int fd, int cmd, ...);
+-- FIXME: isn't it missing login_tty?
+function pty:spawn()
+  local master, slave, slave_name = posix.openpty()
 
-  int read(int fd, void *buf, size_t count);
-]]
+  local pid = unistd.fork()
 
-local util = ffi.load "util"
+  if pid == 0 then
+    -- child
+    unistd.close(master)
+    unistd.setpid("s", 0)  -- setsid()
 
-local pty = { fd = 0 }
+    -- re-open slave by name so kernel attaches it as controlling terminal
+    -- i guess this mirrors login_tty from forkpty
+    local fcntl = require "posix.fcntl"
+    local ctty = fcntl.open(slave_name, fcntl.O_RDWR)
+    unistd.close(slave)
 
-local F_SETFL = 4
-local O_NONBLOCK = 0x4
+    -- this is also from login_tty ?
+    unistd.dup2(ctty, 0)
+    unistd.dup2(ctty, 1)
+    unistd.dup2(ctty, 2)
+    if ctty > 2 then unistd.close(ctty) end
 
--- return master fd and child pid
-function pty:spawn(options)
-  local master = ffi.new "int[1]"
+    unistd.execp("bash", { "ls" })
+    os.exit(1) -- deu ruim
+  else
+    -- parent
+    unistd.close(slave)
 
-  local winsize = ffi.new("struct winsize", { options.rows, options.cols })
+    local fcntl = require "posix.fcntl"
+    local flags = fcntl.fcntl(master, fcntl.F_GETFL)
+    fcntl.fcntl(master, fcntl.F_SETFL, bit.bor(flags, fcntl.O_NONBLOCK))
 
-  local pid = util.forkpty(master, nil, nil, ws)
-  assert(pid >= 0, "forkpty failed")
-
-  if pid == 0 then -- CHILD
-    local argv = ffi.new("const char*[3]", {
-        ffi.cast("const char*", ffi.new("char[?]", 5, "bash")),
-        nil
-    })
-
-    ffi.C.execvp("/bin/bash", argv)
-    os.exit(1)  -- only reached if exec fails
+    self.master = master
+    return pid
   end
-
-  print("child pid", pid)
-
-  self.fd = master[0]
-  ffi.C.fcntl(self.fd, F_SETFL, O_NONBLOCK)
-
-  return pid
 end
 
--- write to master fd
 function pty:write(data)
-  -- TODO: handle partial writes and EINTR on nonblocking master fd
-  -- https://github.com/ghostty-org/ghostling/commit/b7ac06180acf41a0142412fd9e37d6a1c553841e
-
-  util.write(self.fd, data, #data)
+  unistd.write(self.master, data)
 end
 
--- drain master fd, returns result OK | EOF | ERR
 function pty:read(callback)
-  local buf = ffi.new("char[4096]")
   while true do
-    local n = ffi.C.read(self.fd, buf, 4096)
-    if n <= 0 then break end
-
-    callback(buf, n)
+    local output = unistd.read(self.master, 4096)
+    if not chunk then break end
+    callback(output, #output)
   end
 end
 
