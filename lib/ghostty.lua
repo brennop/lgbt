@@ -8,11 +8,10 @@ local ghostty = { }
 
 function ghostty:new_terminal(opts)
   local options = ffi.new("GhosttyTerminalOptions", opts)
-  local terminal = ffi.new("GhosttyTerminal[1]")
+  local terminal = ffi.gc(ffi.new "GhosttyTerminal[1]", function(t) C.ghostty_terminal_free(t[0]) end)
   local result = C.ghostty_terminal_new(nil, terminal, options)
   assert(result == "GHOSTTY_SUCCESS", "ghostty_terminal_new = " .. tostring(result))
-  ffi.gc(terminal[0], C.ghostty_terminal_free)
-  return terminal[0]
+  return terminal
 end
 
 function ghostty:write_terminal(terminal, buffer, size)
@@ -30,7 +29,7 @@ function ghostty:new_formatter(terminal)
   local result = C.ghostty_formatter_terminal_new(nil, formatter, terminal, fmt)
 
   assert(result == "GHOSTTY_SUCCESS", "ghostty_formatter_terminal_new = " .. tostring(result))
-  ffi.gc(formatter[0], C.ghostty_formatter_free)
+  -- ffi.gc(formatter[0], C.ghostty_formatter_free)
 
   return formatter[0]
 end
