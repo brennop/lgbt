@@ -25,13 +25,12 @@ function ghostty:new_formatter(terminal)
   fmt.emit = ffi.C.GHOSTTY_FORMATTER_FORMAT_PLAIN
   fmt.trim = true
 
-  local formatter = ffi.new "GhosttyFormatter[1]"
+  local formatter = ffi.gc(ffi.new "GhosttyFormatter[1]", function(f) C.ghostty_formatter_free(f[0]) end)
   local result = C.ghostty_formatter_terminal_new(nil, formatter, terminal, fmt)
 
   assert(result == "GHOSTTY_SUCCESS", "ghostty_formatter_terminal_new = " .. tostring(result))
-  -- ffi.gc(formatter[0], C.ghostty_formatter_free)
 
-  return formatter[0]
+  return formatter
 end
 
 -- will be removed

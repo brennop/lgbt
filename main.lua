@@ -29,8 +29,8 @@ end
 function love.draw()
   love.graphics.setFont(tela_preta.font)
 
-  local formatter = ghostty:new_formatter(tela_preta.terminal)
-  local buffer = ghostty:format_alloc(formatter)
+  local formatter_ptr = ghostty:new_formatter(tela_preta.terminal)
+  local buffer = ghostty:format_alloc(formatter_ptr[0])
 
   love.graphics.print(buffer)
 end
