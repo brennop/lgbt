@@ -13,23 +13,26 @@ function love.load()
   tela_preta.rows = math.floor(love.graphics.getHeight() / line_height)
   tela_preta.cols = math.floor(love.graphics.getWidth() / width)
 
-  tela_preta.terminal_ptr = ghostty:new_terminal { rows = tela_preta.rows, cols = tela_preta.cols, max_scrollback = 1000 }
-  tela_preta.terminal = tela_preta.terminal_ptr[0]
+  tela_preta.terminal = ghostty.GhosttyTerminal:new { rows = tela_preta.rows, cols = tela_preta.cols, max_scrollback = 1000 }
 
   tela_preta.pty = pty:spawn {rows = tela_preta.rows, cols = tela_preta.cols, width = love.graphics.getWidth(), height = love.graphics.getHeight() }
+
+  tela_preta.render_state_ptrs = ghostty:new_render_state_ptrs()
 
   -- tela_preta.encoder = ghostty:new_encoder()
   -- tela_preta.event = ghostty:new_event()
 end
 
 function love.update(dt)
-  pty:read(function(buf, size) ghostty:write_terminal(tela_preta.terminal, buf, size) end)
+  pty:read(function(buf, size) tela_preta.terminal:write(buf, size) end)
+
+  -- ghostty:render_state_update(tela_preta.render_state_ptrs.render_state, tela_preta.terminal_ptr)
 end
 
 function love.draw()
   love.graphics.setFont(tela_preta.font)
 
-  local formatter_ptr = ghostty:new_formatter(tela_preta.terminal)
+  local formatter_ptr = ghostty:new_formatter(tela_preta.terminal.handle)
   local buffer = ghostty:format_alloc(formatter_ptr[0])
 
   love.graphics.print(buffer)
