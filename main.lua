@@ -1,6 +1,7 @@
 local ghostty = require "lib.ghostty"
 
 local pty = require "pty"
+local input = require "input"
 
 local lgbt = {}
 
@@ -21,14 +22,16 @@ function love.load()
 
   lgbt.render_state, lgbt.row_iterator, lgbt.row_cells = ghostty:new_render_state_ptrs()
 
-  -- lgbt.encoder = ghostty:new_encoder()
-  -- lgbt.event = ghostty:new_event()
+  lgbt.key_encoder = ghostty.GhosttyKeyEncoder:new()
+  lgbt.key_event = ghostty.GhosttyKeyEvent:new()
 end
 
 function love.update(dt)
   pty:read(function(buf, size) lgbt.terminal:write(buf, size) end)
 
   ghostty:render_state_update(lgbt.render_state[0], lgbt.terminal.handle)
+
+  lgbt.key_encoder:setopt_from_terminal(lgbt.terminal.handle)
 end
 
 function love.draw()
@@ -62,16 +65,29 @@ function love.draw()
   ghostty:clean_state(lgbt.render_state)
 end
 
-local codes = {
-  ["return"] = "\r",
-  ["backspace"] = "\127"
-}
-
 function love.keypressed(key, scancode, isrepeat)
-  local code = codes[scancode]
-  if code then pty:write(code) end
+  print(key)
+  local ok, ghostty_key = ghostty:get_ghostty_key(input:get_code(scancode))
+  local mods = input:get_mods()
+
+  if not ok then return end
+  lgbt.key_event:set_key(ghostty_key)
+  lgbt.key_event:set_mods(mods)
+  lgbt.key_event:set_action("GHOSTTY_KEY_ACTION_PRESS")
+
+  local text = input:drain()
+  lgbt.key_event:set_utf8(text, #text)
+
+  local data = lgbt.key_encoder:encode(lgbt.key_event.handle)
+  pty:write(data)
 end
 
 function love.textinput(text)
-  pty:write(text)
+  input:push_text(text)
+
+  local text = input:drain()
+  lgbt.key_event:set_utf8(text, #text)
+
+  local data = lgbt.key_encoder:encode(lgbt.key_event.handle)
+  pty:write(data)
 end

@@ -5,12 +5,24 @@ ffi.cdef(io.open("lib/ghostty-vt.h"):read("*a"))
 local C = ffi.load "ghostty-vt"
 
 local ghostty = {
-  GhosttyTerminal = {}
+  GhosttyTerminal = {},
+  GhosttyKeyEncoder = {},
+  GhosttyKeyEvent = {},
 }
 
-local ghostty_terminal_wrapper = ffi.metatype("struct { GhosttyTerminal handle; }", { 
+local ghostty_terminal_t = ffi.metatype("struct { GhosttyTerminal handle; }", { 
   __index = ghostty.GhosttyTerminal,
   __gc = function(self) C.ghostty_terminal_free(self.handle) end,
+})
+
+local ghostty_key_encoder_t = ffi.metatype("struct { GhosttyKeyEncoder handle; }", {
+  __index = ghostty.GhosttyKeyEncoder,
+  __gc = function(self) C.ghostty_key_encoder_free(self.handle) end,
+})
+
+local ghostty_key_event_t = ffi.metatype("struct { GhosttyKeyEvent handle; }", {
+  __index = ghostty.GhosttyKeyEvent,
+  __gc = function(self) C.ghostty_key_event_free(self.handle) end,
 })
 
 function ghostty.GhosttyTerminal:write(buffer, size)
@@ -23,9 +35,34 @@ function ghostty.GhosttyTerminal:new(opts)
   local result = C.ghostty_terminal_new(nil, terminal_ptr, options)
   assert(result == "GHOSTTY_SUCCESS", "ghostty_terminal_new = " .. tostring(result))
 
-  local terminal = ghostty_terminal_wrapper()
+  local terminal = ghostty_terminal_t()
   terminal.handle = terminal_ptr[0]
   return terminal
+end
+
+function ghostty.GhosttyKeyEncoder:new()
+  local key_encoder_ptr = ffi.new "GhosttyKeyEncoder[1]"
+  local result = C.ghostty_key_encoder_new(nil, key_encoder_ptr)
+  assert(result == "GHOSTTY_SUCCESS", "ghostty_key_encoder_new = " .. tostring(result))
+
+  local key_encoder = ghostty_key_encoder_t()
+  key_encoder.handle = key_encoder_ptr[0]
+  return key_encoder
+end
+
+-- Sync encoder options from the terminal so mode changes are honoured
+function ghostty.GhosttyKeyEncoder:setopt_from_terminal(terminal)
+  C.ghostty_key_encoder_setopt_from_terminal(self.handle, terminal)
+end
+
+function ghostty.GhosttyKeyEvent:new()
+  local key_event_ptr = ffi.new "GhosttyKeyEvent[1]"
+  local result = C.ghostty_key_event_new(nil, key_event_ptr)
+  assert(result == "GHOSTTY_SUCCESS", "ghostty_key_event_new = " .. tostring(result))
+
+  local key_event = ghostty_key_event_t()
+  key_event.handle = key_event_ptr[0]
+  return key_event
 end
 
 function ghostty:new_render_state_ptrs()
@@ -44,7 +81,7 @@ function ghostty:render_state_update(render_state, terminal)
 end
 
 function ghostty:render_state_colors_get(render_state)
-  local colors = ffi.new "GhosttyRenderStateColors[1]" -- FIXME: should this have a GC?
+  local colors = ffi.new "GhosttyRenderStateColors[1]"
   colors[0].size = ffi.sizeof(colors[0])
 
   assert(C.ghostty_render_state_colors_get(render_state, colors) == "GHOSTTY_SUCCESS")
@@ -132,6 +169,37 @@ function ghostty:clean_state(render_state)
   clean_state[0] = C.GHOSTTY_RENDER_STATE_DIRTY_FALSE;
 
   C.ghostty_render_state_set(render_state[0], C.GHOSTTY_RENDER_STATE_OPTION_DIRTY, clean_state)
+end
+
+function ghostty:get_ghostty_key(key)
+  return pcall(getmetatable(C).__index, C, "GHOSTTY_KEY_" .. key)
+end
+
+function ghostty.GhosttyKeyEvent:set_key(key)
+  C.ghostty_key_event_set_key(self.handle, key)
+end
+
+function ghostty.GhosttyKeyEvent:set_action(action)
+  C.ghostty_key_event_set_action(self.handle, C[action])
+end
+
+function ghostty.GhosttyKeyEvent:set_mods(mods)
+  C.ghostty_key_event_set_mods(self.handle, mods)
+end
+
+function ghostty.GhosttyKeyEvent:set_utf8(text, len)
+  C.ghostty_key_event_set_utf8(self.handle, text, len)
+end
+
+function ghostty.GhosttyKeyEncoder:encode(event)
+  local buffer = ffi.new "char[128]"
+  local sizeof = ffi.sizeof(buffer) -- FIX: won't this be static??
+  local written = ffi.new "size_t[1]"
+  local result = C.ghostty_key_encoder_encode(self.handle, event, buffer, sizeof, written)
+  assert(result == "GHOSTTY_SUCCESS")
+
+  local data = ffi.string(buffer, written[0]) 
+  return data
 end
 
 return ghostty
