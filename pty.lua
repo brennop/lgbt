@@ -1,6 +1,8 @@
-local posix  = require "posix."
+local posix  = require "posix"
 local unistd = require "posix.unistd"
 local stdio  = require "posix.stdio"
+local stdlib = require "posix.stdlib"
+local fcntl  = require "posix.fcntl"
 local termio = require "posix.termio"
 
 local pty = {}
@@ -20,7 +22,6 @@ function pty:spawn(opts)
 
     -- re-open slave by name so kernel attaches it as controlling terminal
     -- i guess this mirrors login_tty from forkpty
-    local fcntl = require "posix.fcntl"
     local ctty = fcntl.open(slave_name, fcntl.O_RDWR)
     unistd.close(slave)
 
@@ -30,13 +31,13 @@ function pty:spawn(opts)
     unistd.dup2(ctty, 2)
     if ctty > 2 then unistd.close(ctty) end
 
+    stdlib.setenv("TERM", "xterm-256color", true)
     unistd.execp("zsh", { })
     os.exit(1) -- deu ruim
   else
     -- parent
     unistd.close(slave)
 
-    local fcntl = require "posix.fcntl"
     local flags = fcntl.fcntl(master, fcntl.F_GETFL)
     fcntl.fcntl(master, fcntl.F_SETFL, bit.bor(flags, fcntl.O_NONBLOCK))
 
