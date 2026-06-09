@@ -31,7 +31,7 @@ function pty:spawn(opts)
     unistd.dup2(ctty, 2)
     if ctty > 2 then unistd.close(ctty) end
 
-    stdlib.setenv("TERM", "xterm-256color", true)
+    stdlib.setenv("TERM", "xterm", true)
     unistd.execp("zsh", { })
     os.exit(1) -- deu ruim
   else

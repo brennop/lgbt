@@ -2,6 +2,7 @@ local ghostty = require "lib.ghostty"
 
 local pty = require "pty"
 local input = require "input"
+local utf8 = require "utf8"
 
 local lgbt = {}
 
@@ -76,31 +77,23 @@ function love.draw()
   ghostty:clean_state(lgbt.render_state)
 end
 
-function love.keypressed(key, scancode, isrepeat)
-  local ok, ghostty_key = ghostty:get_ghostty_key(input:get_code(scancode))
-  print(ok, key, scancode)
-  local mods = input:get_mods()
-
+function love.keypressed(_, scancode, isrepeat)
+  local ok, key = ghostty:get_ghostty_key(input:get_code(scancode))
   if not ok then return end
 
-  local key_event = ghostty.GhosttyKeyEvent:new()
-  key_event:set_key(ghostty_key)
-  key_event:set_mods(mods)
-  key_event:set_action(isrepeat and "GHOSTTY_KEY_ACTION_REPEAT" or "GHOSTTY_KEY_ACTION_PRESS")
+  local mods = input:get_mods()
+  local key_event = ghostty.GhosttyKeyEvent:press(key, mods, isrepeat)
 
   table.insert(lgbt.key_events, key_event)
 end
 
-function love.keyreleased(key, scancode)
-  local ok, ghostty_key = ghostty:get_ghostty_key(input:get_code(scancode))
-
+function love.keyreleased(_, scancode)
+  local ok, key = ghostty:get_ghostty_key(input:get_code(scancode))
   if not ok then return end
-  local key_event = ghostty.GhosttyKeyEvent:new()
-  key_event:set_key(ghostty_key)
-  key_event:set_mods(0) -- FIXME: should this be unset??
-  key_event:set_action "GHOSTTY_KEY_ACTION_RELEASE"
 
-  table.insert(lgbt.key_events, key_event)
+  local key_event = ghostty.GhosttyKeyEvent:release(key)
+
+  -- table.insert(lgbt.key_events, key_event)
 end
 
 function love.textinput(text)

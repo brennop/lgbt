@@ -1,4 +1,5 @@
 local ffi = require "ffi"
+local utf8 = require "utf8"
 
 ffi.cdef(io.open("lib/ghostty-vt.h"):read("*a"))
 
@@ -55,7 +56,7 @@ function ghostty.GhosttyKeyEncoder:setopt_from_terminal(terminal)
   C.ghostty_key_encoder_setopt_from_terminal(self.handle, terminal)
 end
 
-function ghostty.GhosttyKeyEvent:new()
+function ghostty.GhosttyKeyEvent.new()
   local key_event_ptr = ffi.new "GhosttyKeyEvent[1]"
   local result = C.ghostty_key_event_new(nil, key_event_ptr)
   assert(result == "GHOSTTY_SUCCESS", "ghostty_key_event_new = " .. tostring(result))
@@ -64,6 +65,48 @@ function ghostty.GhosttyKeyEvent:new()
   key_event.handle = key_event_ptr[0]
   return key_event
 end
+
+function ghostty.GhosttyKeyEvent:press(key, mods, is_repeat)
+  local key_event = ghostty.GhosttyKeyEvent.new()
+
+  C.ghostty_key_event_set_key(key_event.handle, key)
+  C.ghostty_key_event_set_mods(key_event.handle, mods)
+
+  if is_repeat then
+    C.ghostty_key_event_set_action(key_event.handle, C.GHOSTTY_KEY_ACTION_REPEAT)
+  else
+    C.ghostty_key_event_set_action(key_event.handle, C.GHOSTTY_KEY_ACTION_PRESS)
+  end
+
+  return key_event
+end
+
+function ghostty.GhosttyKeyEvent:release(key)
+  local key_event = ghostty.GhosttyKeyEvent.new()
+
+  C.ghostty_key_event_set_key(key_event.handle, key)
+  C.ghostty_key_event_set_mods(key_event.handle, 0)
+  C.ghostty_key_event_set_action(key_event.handle, C.GHOSTTY_KEY_ACTION_RELEASE)
+
+  return key_event
+end
+
+function ghostty.GhosttyKeyEvent:set_key(key)
+  C.ghostty_key_event_set_key(self.handle, key)
+end
+
+function ghostty.GhosttyKeyEvent:set_action(action)
+  C.ghostty_key_event_set_action(self.handle, C[action])
+end
+
+function ghostty.GhosttyKeyEvent:set_mods(mods)
+  C.ghostty_key_event_set_mods(self.handle, mods)
+end
+
+function ghostty.GhosttyKeyEvent:set_utf8(text, len)
+  C.ghostty_key_event_set_utf8(self.handle, text, len)
+end
+
 
 function ghostty:new_render_state_ptrs()
   local render_state = ffi.gc(ffi.new "GhosttyRenderState[1]", function(ptr) C.ghostty_render_state_free(ptr[0]) end)
@@ -118,13 +161,19 @@ function ghostty:render_state_cells_iterator(row_iter, cells)
     C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, grapheme_len)
 
     if grapheme_len[0] == 0 then
-      return x + 1, ""
+      return x + 1
     end
 
     local codepoints = ffi.new "uint32_t[16]"
+    local len = grapheme_len[0] < 16 and grapheme_len[0] or 16
     C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, codepoints)
-    local text = ffi.string(codepoints, 1) 
 
+    -- this is ugly but apparently the only way to copy a c array into a table
+    local codepoints_tbl = {}
+    for i = 0, len do 
+      codepoints_tbl[i + 1] = codepoints[i]
+    end
+    local text = utf8.char(unpack(codepoints_tbl))
     
     local style = ffi.new "GhosttyStyle[1]" 
     style[0].size = ffi.sizeof(style[0])
@@ -173,22 +222,6 @@ end
 
 function ghostty:get_ghostty_key(key)
   return pcall(getmetatable(C).__index, C, "GHOSTTY_KEY_" .. key)
-end
-
-function ghostty.GhosttyKeyEvent:set_key(key)
-  C.ghostty_key_event_set_key(self.handle, key)
-end
-
-function ghostty.GhosttyKeyEvent:set_action(action)
-  C.ghostty_key_event_set_action(self.handle, C[action])
-end
-
-function ghostty.GhosttyKeyEvent:set_mods(mods)
-  C.ghostty_key_event_set_mods(self.handle, mods)
-end
-
-function ghostty.GhosttyKeyEvent:set_utf8(text, len)
-  C.ghostty_key_event_set_utf8(self.handle, text, len)
 end
 
 function ghostty.GhosttyKeyEncoder:encode(event)

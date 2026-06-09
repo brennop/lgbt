@@ -3,6 +3,7 @@ local input = {
 }
 
 -- maps love's KeyConstants to GhosttyKey suffixes
+-- only ones that are not equal to KeyConstant but uppercased
 local codes = {
   ["return"] = "ENTER",
 
@@ -16,6 +17,9 @@ local codes = {
   ["\\"] = "BACKSLASH",
   ["/"] = "SLASH",
   [";"] = "SEMICOLON",
+
+  ["."] = "PERIOD",
+  [","] = "COMMA",
 
   ["0"] = "DIGIT_0",
   ["1"] = "DIGIT_1",
