@@ -9,7 +9,7 @@ local lgbt = {}
 function love.load()
   love.keyboard.setKeyRepeat(true)
   love.graphics.setDefaultFilter("nearest", "nearest")
-  lgbt.font = love.graphics.newFont("departure.otf", 22)
+  lgbt.font = love.graphics.newFont("departure.otf", 11)
 
   local line_height, width = lgbt.font:getHeight(), lgbt.font:getWidth("m")
 
@@ -20,6 +20,8 @@ function love.load()
 
   lgbt.terminal = ghostty.GhosttyTerminal:new { rows = lgbt.rows, cols = lgbt.cols, max_scrollback = 1000 }
 
+  -- TODO: wait for ready
+  -- TODO: handle infant mortality :(
   lgbt.pty = pty:spawn {rows = lgbt.rows, cols = lgbt.cols, width = love.graphics.getWidth(), height = love.graphics.getHeight() }
 
   lgbt.render_state, lgbt.row_iterator, lgbt.row_cells = ghostty:new_render_state_ptrs()
@@ -93,7 +95,7 @@ function love.keyreleased(_, scancode)
 
   local key_event = ghostty.GhosttyKeyEvent:release(key)
 
-  -- table.insert(lgbt.key_events, key_event)
+  table.insert(lgbt.key_events, key_event)
 end
 
 function love.textinput(text)

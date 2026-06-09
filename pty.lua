@@ -52,7 +52,7 @@ end
 
 function pty:read(callback)
   while true do
-    local output = unistd.read(self.master, 4096)
+    local output, error, errnum = unistd.read(self.master, 4096)
     if not output or #output == 0 then break end
     callback(output, #output)
   end
