@@ -6,6 +6,7 @@ local input = require "input"
 local lgbt = {}
 
 function love.load()
+  love.keyboard.setKeyRepeat(true)
   love.graphics.setDefaultFilter("nearest", "nearest")
   lgbt.font = love.graphics.newFont("departure.otf", 22)
 
@@ -23,7 +24,7 @@ function love.load()
   lgbt.render_state, lgbt.row_iterator, lgbt.row_cells = ghostty:new_render_state_ptrs()
 
   lgbt.key_encoder = ghostty.GhosttyKeyEncoder:new()
-  lgbt.key_event = ghostty.GhosttyKeyEvent:new()
+  lgbt.key_events = {}
 end
 
 function love.update(dt)
@@ -32,6 +33,16 @@ function love.update(dt)
   ghostty:render_state_update(lgbt.render_state[0], lgbt.terminal.handle)
 
   lgbt.key_encoder:setopt_from_terminal(lgbt.terminal.handle)
+
+  for _, key_event in ipairs(lgbt.key_events) do
+    local text = input:drain()
+    key_event:set_utf8(text, #text)
+
+    local data = lgbt.key_encoder:encode(key_event.handle)
+    pty:write(data)
+  end
+
+  lgbt.key_events = {}
 end
 
 function love.draw()
@@ -66,28 +77,32 @@ function love.draw()
 end
 
 function love.keypressed(key, scancode, isrepeat)
-  print(key)
   local ok, ghostty_key = ghostty:get_ghostty_key(input:get_code(scancode))
+  print(ok, key, scancode)
   local mods = input:get_mods()
 
   if not ok then return end
-  lgbt.key_event:set_key(ghostty_key)
-  lgbt.key_event:set_mods(mods)
-  lgbt.key_event:set_action("GHOSTTY_KEY_ACTION_PRESS")
 
-  local text = input:drain()
-  lgbt.key_event:set_utf8(text, #text)
+  local key_event = ghostty.GhosttyKeyEvent:new()
+  key_event:set_key(ghostty_key)
+  key_event:set_mods(mods)
+  key_event:set_action(isrepeat and "GHOSTTY_KEY_ACTION_REPEAT" or "GHOSTTY_KEY_ACTION_PRESS")
 
-  local data = lgbt.key_encoder:encode(lgbt.key_event.handle)
-  pty:write(data)
+  table.insert(lgbt.key_events, key_event)
+end
+
+function love.keyreleased(key, scancode)
+  local ok, ghostty_key = ghostty:get_ghostty_key(input:get_code(scancode))
+
+  if not ok then return end
+  local key_event = ghostty.GhosttyKeyEvent:new()
+  key_event:set_key(ghostty_key)
+  key_event:set_mods(0) -- FIXME: should this be unset??
+  key_event:set_action "GHOSTTY_KEY_ACTION_RELEASE"
+
+  table.insert(lgbt.key_events, key_event)
 end
 
 function love.textinput(text)
   input:push_text(text)
-
-  local text = input:drain()
-  lgbt.key_event:set_utf8(text, #text)
-
-  local data = lgbt.key_encoder:encode(lgbt.key_event.handle)
-  pty:write(data)
 end

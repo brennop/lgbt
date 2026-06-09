@@ -1,5 +1,4 @@
 local input = {
-  queue = "",
   text = ""
 }
 
@@ -18,10 +17,16 @@ local codes = {
   ["/"] = "SLASH",
   [";"] = "SEMICOLON",
 
-
-  ["0"] = "ZERO",
-  ["1"] = "ONE",
-  ["2"] = "TWO",
+  ["0"] = "DIGIT_0",
+  ["1"] = "DIGIT_1",
+  ["2"] = "DIGIT_2",
+  ["3"] = "DIGIT_3",
+  ["4"] = "DIGIT_4",
+  ["5"] = "DIGIT_5",
+  ["6"] = "DIGIT_6",
+  ["7"] = "DIGIT_7",
+  ["8"] = "DIGIT_8",
+  ["9"] = "DIGIT_9",
 }
 
 local GHOSTTY_MODS_SHIFT = 0x1
@@ -33,10 +38,6 @@ local GHOSTTY_MODS_NUM_LOCK  = 0x20
 
 function input:push_text(data)
   self.text = self.text .. data
-end
-
-function input:push(data)
-  self.queue = self.queue .. data
 end
 
 function input:drain()
