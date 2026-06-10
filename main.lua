@@ -6,6 +6,12 @@ local utf8 = require "utf8"
 
 local lgbt = {}
 
+local function lerp(a, b, t)
+  local v = a + (b - a) * t
+  if eps and math.abs(v - b) < 0.1 then return b end
+  return v
+end
+
 function love.load()
   love.keyboard.setKeyRepeat(true)
   love.graphics.setDefaultFilter("nearest", "nearest")
@@ -53,9 +59,13 @@ function love.load()
       { r = 0xF4, g = 0xF4, b = 0xF4 },
     }
   })
+
+  lgbt.cursor = { x = 0, y = 0, opacity = 0 }
 end
 
 function love.update(dt)
+  local t = 1 - math.exp(-10 * dt)
+
   pty:read(function(buf, size) lgbt.terminal:write(buf, size) end)
 
   ghostty:render_state_update(lgbt.render_state[0], lgbt.terminal.handle)
@@ -73,6 +83,13 @@ function love.update(dt)
   end
 
   lgbt.key_events = {}
+
+  local cursor = ghostty:get_cursor(lgbt.render_state)
+  lgbt.cursor.opacity = lerp(lgbt.cursor.opacity, cursor and 128 or 0, t)
+  if cursor then
+    lgbt.cursor.x = lerp(lgbt.cursor.x, cursor.x, t)
+    lgbt.cursor.y = lerp(lgbt.cursor.y, cursor.y, t)
+  end
 end
 
 function love.draw()
@@ -95,14 +112,11 @@ function love.draw()
     end
   end
 
-  local cursor = ghostty:get_cursor(lgbt.render_state)
-  if cursor then
-    local fg = colors.foreground
-    if colors.cursor_has_value ~= 0 then fg = colors.cursor end
-    love.graphics.setColor(love.math.colorFromBytes(fg.r, fg.g, fg.b, 128))
+  local fg = colors.foreground
+  if colors.cursor_has_value ~= 0 then fg = colors.cursor end
 
-    love.graphics.rectangle("fill", cursor.x * lgbt.cell_w, cursor.y * lgbt.cell_h, lgbt.cell_w, lgbt.cell_h)
-  end
+  love.graphics.setColor(love.math.colorFromBytes(fg.r, fg.g, fg.b, lgbt.cursor.opacity))
+  love.graphics.rectangle("fill", lgbt.cursor.x * lgbt.cell_w, lgbt.cursor.y * lgbt.cell_h, lgbt.cell_w, lgbt.cell_h)
 
   ghostty:clean_state(lgbt.render_state)
 end
