@@ -91,6 +91,10 @@ function ghostty.GhosttyKeyEvent:release(key)
   return key_event
 end
 
+function ghostty.GhosttyKeyEvent:is_release()
+  return C.ghostty_key_event_get_action(self.handle) == C.GHOSTTY_KEY_ACTION_RELEASE
+end
+
 function ghostty.GhosttyKeyEvent:set_key(key)
   C.ghostty_key_event_set_key(self.handle, key)
 end

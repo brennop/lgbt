@@ -38,8 +38,10 @@ function love.update(dt)
   lgbt.key_encoder:setopt_from_terminal(lgbt.terminal.handle)
 
   for _, key_event in ipairs(lgbt.key_events) do
-    local text = input:drain()
-    key_event:set_utf8(text, #text)
+    if not key_event:is_release() then
+      local text = input:drain()
+      key_event:set_utf8(text, #text)
+    end
 
     local data = lgbt.key_encoder:encode(key_event.handle)
     pty:write(data)
