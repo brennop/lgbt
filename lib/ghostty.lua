@@ -41,6 +41,25 @@ function ghostty.GhosttyTerminal:new(opts)
   return terminal
 end
 
+function ghostty.GhosttyTerminal:set_color_theme(theme)
+  local fg = ffi.new("GhosttyColorRgb[1]", { theme.foreground })
+  local bg = ffi.new("GhosttyColorRgb[1]", { theme.background })
+  local cursor = ffi.new("GhosttyColorRgb[1]", { theme.cursor })
+
+  C.ghostty_terminal_set(self.handle, C.GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, fg)
+  C.ghostty_terminal_set(self.handle, C.GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, bg)
+  C.ghostty_terminal_set(self.handle, C.GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, cursor)
+
+  local palette = ffi.new("GhosttyColorRgb[256]")
+  C.ghostty_terminal_get(self.handle, C.GHOSTTY_TERMINAL_DATA_COLOR_PALETTE, palette)
+
+  for i = 1, 16 do
+    palette[i - 1].r = theme.colors[i].r
+    palette[i - 1].g = theme.colors[i].g
+    palette[i - 1].b = theme.colors[i].b
+  end
+end
+
 function ghostty.GhosttyKeyEncoder:new()
   local key_encoder_ptr = ffi.new "GhosttyKeyEncoder[1]"
   local result = C.ghostty_key_encoder_new(nil, key_encoder_ptr)
@@ -170,12 +189,13 @@ function ghostty:render_state_cells_iterator(row_iter, cells)
 
     local codepoints = ffi.new "uint32_t[16]"
     local len = grapheme_len[0] < 16 and grapheme_len[0] or 16
+    -- FIXME: use GRAPHEME_UTF8 ??
     C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, codepoints)
 
     -- this is ugly but apparently the only way to copy a c array into a table
     local codepoints_tbl = {}
-    for i = 0, len do 
-      codepoints_tbl[i + 1] = codepoints[i]
+    for i = 1, len do 
+      codepoints_tbl[i] = codepoints[i - 1]
     end
     local text = utf8.char(unpack(codepoints_tbl))
     

@@ -28,6 +28,31 @@ function love.load()
 
   lgbt.key_encoder = ghostty.GhosttyKeyEncoder:new()
   lgbt.key_events = {}
+
+  lgbt.terminal:set_color_theme({
+    background = { r = 0x1A, g = 0x1C, b = 0x2C },
+    foreground = { r = 0xF4, g = 0xF4, b = 0xF4 },
+    cursor     = { r = 0x94, g = 0xB0, b = 0xC2 },
+    
+    colors = {
+      { r = 0x1A, g = 0x1C, b = 0x2C },
+      { r = 0xB1, g = 0x3E, b = 0x53 },
+      { r = 0x25, g = 0x71, b = 0x79 },
+      { r = 0xFF, g = 0xCD, b = 0x75 },
+      { r = 0x29, g = 0x36, b = 0x6F },
+      { r = 0x5D, g = 0x27, b = 0x5D },
+      { r = 0x41, g = 0xA6, b = 0xF6 },
+      { r = 0x56, g = 0x6C, b = 0x86 },
+      { r = 0x33, g = 0x3C, b = 0x57 },
+      { r = 0xEF, g = 0x7D, b = 0x57 },
+      { r = 0x38, g = 0xB7, b = 0x64 },
+      { r = 0xA7, g = 0xF0, b = 0x70 },
+      { r = 0x3B, g = 0x5D, b = 0xC9 },
+      { r = 0x73, g = 0xEF, b = 0xF7 },
+      { r = 0x94, g = 0xB0, b = 0xC2 },
+      { r = 0xF4, g = 0xF4, b = 0xF4 },
+    }
+  })
 end
 
 function love.update(dt)
@@ -56,12 +81,13 @@ function love.draw()
   local colors_ptr = ghostty:render_state_colors_get(lgbt.render_state[0])
   local colors = colors_ptr[0]
   local bg = colors.background
-  love.graphics.setBackgroundColor(love.math.colorFromBytes(bg.r, bg.g, bg.b, 255))
+  love.graphics.clear(love.math.colorFromBytes(bg.r, bg.g, bg.b, 255))
 
   for y in ghostty:render_state_row_iterator(lgbt.render_state, lgbt.row_iterator) do
     for x, text, style in ghostty:render_state_cells_iterator(lgbt.row_iterator, lgbt.row_cells) do
       if style then
         local fg = ghostty:resolve_color(style[0].fg_color, colors)
+
         love.graphics.setColor(love.math.colorFromBytes(fg.r, fg.g, fg.b, 255))
 
         love.graphics.print(text, x * lgbt.cell_w, y * lgbt.cell_h)
@@ -82,6 +108,11 @@ function love.draw()
 end
 
 function love.keypressed(_, scancode, isrepeat)
+  -- crude and wrong clipboard manager
+  if scancode == "v" and love.keyboard.isDown "lgui" then
+    input:push_text(love.system.getClipboardText())
+  end
+
   local ok, key = ghostty:get_ghostty_key(input:get_code(scancode))
   if not ok then return end
 
