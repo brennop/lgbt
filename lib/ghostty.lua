@@ -58,6 +58,8 @@ function ghostty.GhosttyTerminal:set_color_theme(theme)
     palette[i - 1].g = theme.colors[i].g
     palette[i - 1].b = theme.colors[i].b
   end
+
+  C.ghostty_terminal_set(self.handle, C.GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette);
 end
 
 function ghostty.GhosttyKeyEncoder:new()
