@@ -32,7 +32,7 @@ function pty:spawn(opts)
     if ctty > 2 then unistd.close(ctty) end
 
     stdlib.setenv("TERM", "xterm", true)
-    unistd.execp("zsh", { })
+    unistd.execp("sh", { })
     os.exit(1) -- deu ruim
   else
     -- parent

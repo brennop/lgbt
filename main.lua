@@ -148,3 +148,7 @@ end
 function love.textinput(text)
   input:push_text(text)
 end
+
+function love.wheelmoved(x, y)
+  lgbt.terminal:scroll_viewport(-y)
+end

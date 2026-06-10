@@ -62,6 +62,15 @@ function ghostty.GhosttyTerminal:set_color_theme(theme)
   C.ghostty_terminal_set(self.handle, C.GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette);
 end
 
+function ghostty.GhosttyTerminal:scroll_viewport(delta)
+  local scroll_viewport = ffi.new("GhosttyTerminalScrollViewport", {
+    tag = C.GHOSTTY_SCROLL_VIEWPORT_DELTA,
+    value = { delta = delta },
+  })
+
+  C.ghostty_terminal_scroll_viewport(self.handle, scroll_viewport)
+end
+
 function ghostty.GhosttyKeyEncoder:new()
   local key_encoder_ptr = ffi.new "GhosttyKeyEncoder[1]"
   local result = C.ghostty_key_encoder_new(nil, key_encoder_ptr)
