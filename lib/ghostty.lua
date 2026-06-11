@@ -24,6 +24,12 @@ local ghostty_key_encoder_t = ffi.metatype("struct { GhosttyKeyEncoder handle; }
 local ghostty_key_event_t = ffi.metatype("struct { GhosttyKeyEvent handle; }", {
   __index = ghostty.GhosttyKeyEvent,
   __gc = function(self) C.ghostty_key_event_free(self.handle) end,
+  __tostring = function(self) 
+    local key = tonumber(C.ghostty_key_event_get_key(self.handle))
+    local mods = tonumber(C.ghostty_key_event_get_mods(self.handle))
+    local action = tonumber(C.ghostty_key_event_get_action(self.handle))
+    return "{" .. table.concat({key, mods, action}, ",") .. "}"
+  end,
 })
 
 function ghostty.GhosttyTerminal:write(buffer, size)
@@ -186,31 +192,18 @@ end
 function ghostty:render_state_cells_iterator(row_iter, cells)
   assert(C.ghostty_render_state_row_get(row_iter[0], C.GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, cells) == "GHOSTTY_SUCCESS")
 
+  local buffer = ffi.new "GhosttyBuffer"
+  buffer.ptr = ffi.new "uint8_t[64]"
+  buffer.cap = 64
+
   return function(_, x)
-    if C.ghostty_render_state_row_cells_next(cells[0]) == 0 then 
-      return nil 
-    end
+    if C.ghostty_render_state_row_cells_next(cells[0]) == 0 then return nil end
 
-    local grapheme_len = ffi.new "uint32_t[1]"
-    C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_LEN, grapheme_len)
+    C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_UTF8, buffer)
+    if buffer.len == 0 then return x + 1 end
+    local text = ffi.string(buffer.ptr, buffer.len)
 
-    if grapheme_len[0] == 0 then
-      return x + 1
-    end
-
-    local codepoints = ffi.new "uint32_t[16]"
-    local len = grapheme_len[0] < 16 and grapheme_len[0] or 16
-    -- FIXME: use GRAPHEME_UTF8 ??
-    C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_BUF, codepoints)
-
-    -- this is ugly but apparently the only way to copy a c array into a table
-    local codepoints_tbl = {}
-    for i = 1, len do 
-      codepoints_tbl[i] = codepoints[i - 1]
-    end
-    local text = utf8.char(unpack(codepoints_tbl))
-    
-    local style = ffi.new "GhosttyStyle[1]" 
+    local style = ffi.new "GhosttyStyle[1]"
     style[0].size = ffi.sizeof(style[0])
     C.ghostty_render_state_row_cells_get(cells[0], C.GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, style)
 
